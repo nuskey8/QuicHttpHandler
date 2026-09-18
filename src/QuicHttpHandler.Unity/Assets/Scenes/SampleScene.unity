@@ -443,7 +443,7 @@ GameObject:
   - component: {fileID: 2084438663}
   - component: {fileID: 2084438662}
   m_Layer: 0
-  m_Name: Sandbox
+  m_Name: MagicOnionClient1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -458,9 +458,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 2084438661}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b44d6f5ab7dc486eb90dbb068ee44671, type: 3}
+  m_Script: {fileID: 11500000, guid: 7fbc70d60ed14a1fa54f1bb659ab869d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sandbox
+  m_EditorClassIdentifier: Assembly-CSharp::MagicOnionClient1
+  playerName: nuskey
 --- !u!4 &2084438663
 Transform:
   m_ObjectHideFlags: 0

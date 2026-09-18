@@ -1,0 +1,19 @@
+{
+    "name": "MagicOnionServer1.Shared",
+    "rootNamespace": "",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "MagicOnion.Client.dll",
+        "MagicOnion.Abstractions.dll",
+        "Grpc.Net.Client.dll",
+        "Grpc.Core.Api.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

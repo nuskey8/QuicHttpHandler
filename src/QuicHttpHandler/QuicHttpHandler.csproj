@@ -23,4 +23,11 @@
     <PackageReference Include="System.IO.Pipelines" Version="10.0.0" />
     <ProjectReference Include="..\QuicHttpHandler.Interop\QuicHttpHandler.Interop.csproj" />
   </ItemGroup>
+
+  <Target Name="CopyToUnity" AfterTargets="Build" Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <Copy
+      SourceFiles="$(TargetPath)"
+      DestinationFiles="$(MSBuildProjectDirectory)/../QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity/Runtime/QuicHttpHandler.dll"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

@@ -7,6 +7,8 @@
     <Project Path="sandbox/ConsoleApp1/ConsoleApp1.csproj" />
     <Project Path="sandbox/GrpcOverHttp3/Client/GrpcOverHttp3.Client.csproj" />
     <Project Path="sandbox/GrpcOverHttp3/Server/GrpcOverHttp3.Server.csproj" />
+    <Project Path="sandbox/MagicOnionServer1/Shared/MagicOnionServer1.Shared.csproj" />
+    <Project Path="sandbox/MagicOnionServer1/Server/MagicOnionServer1.Server.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/QuicHttpHandler.Interop/QuicHttpHandler.Interop.csproj" />

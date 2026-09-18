@@ -1,0 +1,6 @@
+{
+  "name": "com.nuskey8.magiconionserver1.shared",
+  "version": "1.0.0",
+  "displayName": "MagicOnionServer1.Shared",
+  "description": "MagicOnion + QuicHttpHandler Sample"
+}

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MagicOnion.Server" Version="7.10.1" />
+    <ProjectReference Include="../Shared/MagicOnionServer1.Shared.csproj" />
+    <Compile Include="../../../tests/LocalhostCertificate.cs" Link="LocalhostCertificate.cs" />
+  </ItemGroup>
+</Project>

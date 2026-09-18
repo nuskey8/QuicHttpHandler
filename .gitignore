@@ -79,7 +79,6 @@ StyleCopReport.xml
 *_p.c
 *_h.h
 *.ilk
-*.meta
 *.obj
 *.iobj
 *.pch
@@ -208,6 +207,7 @@ PublishScripts/
 *.snupkg
 # The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
+!src/QuicHttpHandler.Unity/Packages/manifest.json
 !src/QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity/
 !src/QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity/**
 # except build/, which is used as an MSBuild target.
