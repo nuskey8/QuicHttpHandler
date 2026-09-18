@@ -1,0 +1,99 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: NuGet and GitHub Release
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-dotnet@v5
+        id: dotnet11
+        with:
+          dotnet-version: 11.0.x
+      - name: Select .NET 11 SDK
+        env:
+          DOTNET_11_VERSION: ${{ steps.dotnet11.outputs.dotnet-version }}
+        run: |
+          jq --arg version "$DOTNET_11_VERSION" \
+            '.sdk.version = $version | .sdk.allowPrerelease = true | .sdk.rollForward = "latestPatch"' \
+            global.json > "$RUNNER_TEMP/global.json"
+          cp "$RUNNER_TEMP/global.json" global.json
+      - name: Validate tag and package version
+        id: version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Expected a stable version tag such as v1.2.3: $tag"
+            exit 1
+          fi
+          version="${tag#v}"
+          project_version="$(sed -n 's/.*<PackageVersion>\([^<]*\)<\/PackageVersion>.*/\1/p' Directory.Build.props)"
+          if [[ "$version" != "$project_version" ]]; then
+            echo "::error::Tag version $version does not match PackageVersion $project_version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Pack NuGet packages
+        shell: bash
+        run: |
+          dotnet pack src/QuicHttpHandler.Interop/QuicHttpHandler.Interop.csproj -c Release -o ./artifacts -p:PackageVersion=${{ steps.version.outputs.version }}
+          dotnet pack src/QuicHttpHandler/QuicHttpHandler.csproj -c Release -o ./artifacts -p:PackageVersion=${{ steps.version.outputs.version }}
+      - name: Verify packages
+        shell: bash
+        run: |
+          for package in QuicHttpHandler QuicHttpHandler.Interop; do
+            test -f "artifacts/$package.${{ steps.version.outputs.version }}.nupkg"
+          done
+          interop="artifacts/QuicHttpHandler.Interop.${{ steps.version.outputs.version }}.nupkg"
+          for rid in linux-x64 linux-arm64 win-x64 win-arm64 osx-x64 osx-arm64; do
+            if ! unzip -Z1 "$interop" | grep -q "^runtimes/$rid/native/"; then
+              echo "::error::Missing native asset for $rid in $interop"
+              exit 1
+            fi
+          done
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      - name: Publish to NuGet
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          for package in QuicHttpHandler.Interop QuicHttpHandler; do
+            dotnet nuget push "artifacts/$package.${{ steps.version.outputs.version }}.nupkg" \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/*.nupkg --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          fi
