@@ -170,7 +170,8 @@ jobs:
       - name: Build Android native library
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: cargo ndk -t "${{ matrix.abi }}" -p 23 -o "dist/QuicHttpHandler.Unity/Runtime/Plugins/Android" build -p quic_http_handler --release --locked
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: cargo ndk -t "${{ matrix.abi }}" --platform 23 -o "dist/QuicHttpHandler.Unity/Runtime/Plugins/Android" build -p quic_http_handler --release --locked
       - uses: actions/upload-artifact@v4
         with:
           name: native-android-${{ matrix.abi }}
