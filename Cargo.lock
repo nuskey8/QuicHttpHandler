@@ -1867,6 +1867,7 @@ dependencies = [
  "boring",
  "bytes",
  "csbindgen",
+ "futures-executor",
  "futures-util",
  "socket2",
  "tokio",

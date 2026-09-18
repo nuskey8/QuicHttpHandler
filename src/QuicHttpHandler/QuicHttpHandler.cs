@@ -863,6 +863,8 @@ public sealed class QuicHttpHandler : HttpMessageHandler
         );
         GCHandle gcHandle;
         InteropRequest* native;
+        InteropRequest* deferredNativeDispose;
+        int activeNativeOperations;
         CancellationTokenRegistration registration;
         HttpResponseMessage? responseMessage;
         Exception? callbackError;
@@ -1009,10 +1011,21 @@ public sealed class QuicHttpHandler : HttpMessageHandler
 
         internal void CompleteUpload()
         {
+            InteropRequest* requestToFinish;
             lock (gate)
             {
-                if (!completed && native != null)
-                    NativeMethods.qhh_request_finish(native);
+                if (completed || native == null)
+                    return;
+                requestToFinish = native;
+                activeNativeOperations++;
+            }
+            try
+            {
+                NativeMethods.qhh_request_finish(requestToFinish);
+            }
+            finally
+            {
+                ReleaseNativeOperation();
             }
         }
 
@@ -1179,15 +1192,45 @@ public sealed class QuicHttpHandler : HttpMessageHandler
 
         internal bool Write(ReadOnlySpan<byte> data)
         {
+            InteropRequest* requestToWrite;
+            lock (gate)
+            {
+                if (completed || native == null)
+                    return false;
+                requestToWrite = native;
+                activeNativeOperations++;
+            }
             fixed (byte* pointer = data)
             {
-                lock (gate)
+                try
                 {
-                    return !completed
-                        && native != null
-                        && NativeMethods.qhh_request_write(native, pointer, (nuint)data.Length);
+                    return NativeMethods.qhh_request_write(
+                        requestToWrite,
+                        pointer,
+                        (nuint)data.Length
+                    );
+                }
+                finally
+                {
+                    ReleaseNativeOperation();
                 }
             }
+        }
+
+        void ReleaseNativeOperation()
+        {
+            InteropRequest* requestToDispose = null;
+            lock (gate)
+            {
+                activeNativeOperations--;
+                if (activeNativeOperations == 0)
+                {
+                    requestToDispose = deferredNativeDispose;
+                    deferredNativeDispose = null;
+                }
+            }
+            if (requestToDispose != null)
+                NativeMethods.qhh_request_dispose(requestToDispose);
         }
 
         internal void Cancel() => Finish(new OperationCanceledException(token), cancelNative: true);
@@ -1206,7 +1249,18 @@ public sealed class QuicHttpHandler : HttpMessageHandler
 
                 completed = true;
                 requestToCancel = cancelNative ? native : null;
-                requestToDispose = native;
+                deferredNativeDispose = native;
+                if (requestToCancel != null)
+                    activeNativeOperations++;
+                if (activeNativeOperations == 0)
+                {
+                    requestToDispose = deferredNativeDispose;
+                    deferredNativeDispose = null;
+                }
+                else
+                {
+                    requestToDispose = null;
+                }
                 native = null;
                 pipe?.Writer.Complete(error);
                 if (error != null)
@@ -1214,7 +1268,16 @@ public sealed class QuicHttpHandler : HttpMessageHandler
             }
 
             if (requestToCancel != null)
-                NativeMethods.qhh_request_cancel(requestToCancel);
+            {
+                try
+                {
+                    NativeMethods.qhh_request_cancel(requestToCancel);
+                }
+                finally
+                {
+                    ReleaseNativeOperation();
+                }
+            }
             if (requestToDispose != null)
                 NativeMethods.qhh_request_dispose(requestToDispose);
 

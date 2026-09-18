@@ -86,6 +86,7 @@ struct RequestLife {
     completed: AtomicBool,
     callback_gate: Mutex<()>,
     body_resume: Notify,
+    write_resume: Notify,
     pool_state: OnceLock<Arc<PoolState>>,
 }
 
@@ -125,9 +126,25 @@ impl Completion<'_> {
 }
 
 impl RequestLife {
+    fn send_body_chunk(&self, sender: mpsc::Sender<BodyChunk>, chunk: BodyChunk) -> bool {
+        futures_executor::block_on(async {
+            let notified = self.write_resume.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if self.cancelled.load(Ordering::Acquire) || self.completed.load(Ordering::Acquire) {
+                return false;
+            }
+            tokio::select! {
+                result = sender.send(chunk) => result.is_ok(),
+                _ = &mut notified => false,
+            }
+        })
+    }
+
     fn complete(&self, callback: CompletionCallback, completion: Completion<'_>) {
         let _guard = self.callback_gate.lock().unwrap();
         if !self.completed.swap(true, Ordering::AcqRel) {
+            self.write_resume.notify_waiters();
             if let Some(pool_state) = self.pool_state.get() {
                 pool_state.request_finished();
             }
@@ -828,6 +845,7 @@ pub unsafe extern "C" fn qhh_send(
         completed: AtomicBool::new(false),
         callback_gate: Mutex::new(()),
         body_resume: Notify::new(),
+        write_resume: Notify::new(),
         pool_state: OnceLock::new(),
     });
     let id = context.next_request_id.fetch_add(1, Ordering::Relaxed);
@@ -984,22 +1002,19 @@ pub unsafe extern "C" fn qhh_request_write(
     let Ok(data) = RawSlice::from_raw(data, len) else {
         return false;
     };
-    request
-        .body
-        .lock()
-        .unwrap()
-        .clone()
-        .map(|tx| {
-            tx.blocking_send(BodyChunk::Data(Bytes::copy_from_slice(data.as_slice())))
-                .is_ok()
-        })
-        .unwrap_or(false)
+    let sender = request.body.lock().unwrap().clone();
+    sender.is_some_and(|sender| {
+        request.life.send_body_chunk(
+            sender,
+            BodyChunk::Data(Bytes::copy_from_slice(data.as_slice())),
+        )
+    })
 }
 #[no_mangle]
 pub unsafe extern "C" fn qhh_request_finish(request: *mut Request) {
     if let Some(request) = request.as_ref() {
         if let Some(tx) = request.body.lock().unwrap().take() {
-            let _ = tx.blocking_send(BodyChunk::Finish);
+            let _ = request.life.send_body_chunk(tx, BodyChunk::Finish);
         }
     }
 }
@@ -1007,6 +1022,7 @@ pub unsafe extern "C" fn qhh_request_finish(request: *mut Request) {
 pub unsafe extern "C" fn qhh_request_cancel(request: *mut Request) {
     let values = request.as_ref().map(|request| {
         request.life.cancelled.store(true, Ordering::Release);
+        request.life.write_resume.notify_waiters();
         request.life.body_resume.notify_one();
         request.body.lock().unwrap().take();
         let _ = request

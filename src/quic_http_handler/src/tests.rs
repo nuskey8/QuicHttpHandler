@@ -62,6 +62,7 @@ fn request_completion_is_exactly_once_under_racing_paths() {
         completed: AtomicBool::new(false),
         callback_gate: Mutex::new(()),
         body_resume: Notify::new(),
+        write_resume: Notify::new(),
         pool_state: OnceLock::new(),
     });
     let threads = (0..16)
@@ -76,6 +77,38 @@ fn request_completion_is_exactly_once_under_racing_paths() {
         thread.join().unwrap();
     }
     assert_eq!(COMPLETIONS.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn cancelled_request_unblocks_a_full_body_channel() {
+    let life = Arc::new(RequestLife {
+        state: 0,
+        cancelled: AtomicBool::new(false),
+        completed: AtomicBool::new(false),
+        callback_gate: Mutex::new(()),
+        body_resume: Notify::new(),
+        write_resume: Notify::new(),
+        pool_state: OnceLock::new(),
+    });
+    let (sender, _receiver) = tokio::sync::mpsc::channel(1);
+    sender.try_send(BodyChunk::Data(Bytes::new())).unwrap();
+    let (done, result) = std::sync::mpsc::channel();
+    let (started, ready) = std::sync::mpsc::channel();
+    let writer_life = life.clone();
+    let writer = std::thread::spawn(move || {
+        started.send(()).unwrap();
+        let sent = writer_life.send_body_chunk(sender, BodyChunk::Finish);
+        done.send(sent).unwrap();
+    });
+
+    ready.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+    assert!(result
+        .recv_timeout(std::time::Duration::from_millis(20))
+        .is_err());
+    life.cancelled.store(true, Ordering::Release);
+    life.write_resume.notify_waiters();
+    assert!(!result.recv_timeout(std::time::Duration::from_secs(1)).unwrap());
+    writer.join().unwrap();
 }
 
 #[test]
