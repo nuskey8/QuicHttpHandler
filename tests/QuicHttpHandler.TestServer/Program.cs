@@ -37,11 +37,15 @@ static async Task RunServerAsync(
     });
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.Listen(IPAddress.Loopback, port, endpoint =>
-        {
-            endpoint.Protocols = HttpProtocols.Http3;
-            endpoint.UseHttps(certificate);
-        });
+        options.Listen(
+            IPAddress.Loopback,
+            port,
+            endpoint =>
+            {
+                endpoint.Protocols = HttpProtocols.Http3;
+                endpoint.UseHttps(certificate);
+            }
+        );
     });
 
     var app = builder.Build();

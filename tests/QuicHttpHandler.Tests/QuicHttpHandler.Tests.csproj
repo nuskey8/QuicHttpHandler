@@ -35,10 +35,7 @@
     />
   </ItemGroup>
   <Target Name="BuildNativeFixtures" BeforeTargets="Build">
-    <Exec
-      WorkingDirectory="../.."
-      Command="cargo build -p quic_http_handler"
-    />
+    <Exec WorkingDirectory="../.." Command="cargo build -p quic_http_handler" />
   </Target>
   <Target Name="CopyNativeFixture" AfterTargets="Build">
     <Copy

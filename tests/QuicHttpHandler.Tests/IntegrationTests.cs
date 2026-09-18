@@ -882,12 +882,13 @@ sealed class TestServer : IAsyncDisposable
     )
     {
         var root = FindRoot();
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Name;
         var serverAssembly = Path.Combine(
             root,
             "artifacts",
             "bin",
             "QuicHttpHandler.TestServer",
-            "debug",
+            configuration,
             "QuicHttpHandler.TestServer.dll"
         );
         var startInfo = new ProcessStartInfo("dotnet")
@@ -931,11 +932,16 @@ sealed class TestServer : IAsyncDisposable
         var certificatePem = "";
         if (!blackhole)
         {
-            var certificateLine = await process.StandardOutput.ReadLineAsync().WaitAsync(
-                TimeSpan.FromSeconds(10)
-            );
-            if (certificateLine == null || !certificateLine.StartsWith("CERT=", StringComparison.Ordinal))
-                throw new InvalidOperationException($"Unexpected certificate output: {certificateLine}");
+            var certificateLine = await process
+                .StandardOutput.ReadLineAsync()
+                .WaitAsync(TimeSpan.FromSeconds(10));
+            if (
+                certificateLine == null
+                || !certificateLine.StartsWith("CERT=", StringComparison.Ordinal)
+            )
+                throw new InvalidOperationException(
+                    $"Unexpected certificate output: {certificateLine}"
+                );
             certificatePem = PemEncoding.WriteString(
                 "CERTIFICATE",
                 Convert.FromBase64String(certificateLine[5..])
