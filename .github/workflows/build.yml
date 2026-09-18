@@ -173,7 +173,7 @@ jobs:
           if-no-files-found: error
 
   ios:
-    name: iOS device and simulator
+    name: iOS device
     runs-on: macos-15
     timeout-minutes: 45
     env:
@@ -184,26 +184,23 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          targets: aarch64-apple-ios
       - uses: Swatinem/rust-cache@v2
         with:
           key: ios
-      - name: Build iOS static libraries
-        run: |
-          cargo build -p quic_http_handler --release --locked --target aarch64-apple-ios
-          cargo build -p quic_http_handler --release --locked --target aarch64-apple-ios-sim
-          cargo build -p quic_http_handler --release --locked --target x86_64-apple-ios
+      - name: Build iOS static library
+        run: cargo build -p quic_http_handler --release --locked --target aarch64-apple-ios
       - name: Create XCFramework
         run: |
           mkdir -p dist/QuicHttpHandler.Unity/Runtime/Plugins/iOS
-          simulator_archive="$RUNNER_TEMP/libquic_http_handler-simulator.a"
-          lipo -create \
-            target/aarch64-apple-ios-sim/release/libquic_http_handler.a \
-            target/x86_64-apple-ios/release/libquic_http_handler.a \
-            -output "$simulator_archive"
+          device_archive="$RUNNER_TEMP/libquic_http_handler.a"
+          cp target/aarch64-apple-ios/release/libquic_http_handler.a "$device_archive"
+          if ! xcrun strip -S -x "$device_archive" 2> "$RUNNER_TEMP/strip.log"; then
+            cat "$RUNNER_TEMP/strip.log"
+            exit 1
+          fi
           xcodebuild -create-xcframework \
-            -library target/aarch64-apple-ios/release/libquic_http_handler.a \
-            -library "$simulator_archive" \
+            -library "$device_archive" \
             -output dist/QuicHttpHandler.Unity/Runtime/Plugins/iOS/quic_http_handler.xcframework
       - uses: actions/upload-artifact@v4
         with:
