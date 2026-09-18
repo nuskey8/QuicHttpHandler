@@ -18,7 +18,7 @@ env:
 jobs:
   test:
     name: Rust and .NET tests
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +33,12 @@ jobs:
         id: dotnet11
         with:
           dotnet-version: 11.0.x
+      - name: Install QUIC runtime
+        run: |
+          curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -o "$RUNNER_TEMP/packages-microsoft-prod.deb"
+          sudo dpkg -i "$RUNNER_TEMP/packages-microsoft-prod.deb"
+          sudo apt-get update
+          sudo apt-get install -y libmsquic
       - name: Select .NET 11 SDK for the multi-target projects
         env:
           DOTNET_11_VERSION: ${{ steps.dotnet11.outputs.dotnet-version }}
