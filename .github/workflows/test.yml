@@ -1,0 +1,58 @@
+name: Test
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  test:
+    name: Rust and .NET tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-dotnet@v5
+        id: dotnet11
+        with:
+          dotnet-version: 11.0.x
+      - name: Select .NET 11 SDK for the multi-target projects
+        env:
+          DOTNET_11_VERSION: ${{ steps.dotnet11.outputs.dotnet-version }}
+        run: |
+          jq --arg version "$DOTNET_11_VERSION" \
+            '.sdk.version = $version | .sdk.allowPrerelease = true | .sdk.rollForward = "latestPatch"' \
+            global.json > "$RUNNER_TEMP/global.json"
+          cp "$RUNNER_TEMP/global.json" global.json
+      - name: Test native implementation
+        run: cargo test -p quic_http_handler
+      - name: Test managed implementation
+        run: dotnet run -c Release --project tests/QuicHttpHandler.Tests -- --timeout 5m
+
+  format:
+    name: CSharpier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet tool restore
+      - run: dotnet csharpier check src tests

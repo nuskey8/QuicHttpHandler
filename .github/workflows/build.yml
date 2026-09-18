@@ -15,16 +15,14 @@ env:
   RUST_BACKTRACE: "1"
 
 jobs:
-  test:
-    name: Tests
+  managed:
+    name: Unity managed assembly
     runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
@@ -40,12 +38,8 @@ jobs:
             '.sdk.version = $version | .sdk.allowPrerelease = true | .sdk.rollForward = "latestPatch"' \
             global.json > "$RUNNER_TEMP/global.json"
           cp "$RUNNER_TEMP/global.json" global.json
-      - name: Test native implementation
-        run: cargo test -p quic_http_handler
-      - name: Test managed implementation
-        run: dotnet run -c Release --project tests/QuicHttpHandler.Tests -- --timeout 5m
       - name: Build Unity managed assemblies
-        run: dotnet build src/QuicHttpHandler/QuicHttpHandler.csproj -c Release -f netstandard2.1 --no-restore
+        run: dotnet build src/QuicHttpHandler/QuicHttpHandler.csproj -c Release -f netstandard2.1
       - name: Stage managed artifact
         run: |
           mkdir -p dist/QuicHttpHandler.Unity/Runtime
@@ -219,7 +213,7 @@ jobs:
 
   package:
     name: Combined Unity and .NET artifacts
-    needs: [test, desktop, android, ios]
+    needs: [managed, desktop, android, ios]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
