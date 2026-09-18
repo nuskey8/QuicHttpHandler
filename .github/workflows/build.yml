@@ -243,3 +243,40 @@ jobs:
           name: quic-http-handler-all-platforms
           path: dist
           if-no-files-found: error
+
+  update-plugins:
+    name: Propose updated Unity and .NET plugins
+    needs: package
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: quic-http-handler-all-platforms
+          path: dist
+      - name: Update checked-in plugins
+        run: |
+          unity_plugins=src/QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity/Runtime/Plugins
+          dotnet_runtimes=src/QuicHttpHandler.Interop/runtimes
+          mkdir -p "$unity_plugins" "$dotnet_runtimes"
+          rsync -a dist/QuicHttpHandler.Unity/Runtime/Plugins/ "$unity_plugins/"
+          rsync -a dist/QuicHttpHandler.Interop/runtimes/ "$dotnet_runtimes/"
+          rm -f "$unity_plugins/macOS/libquic_http_handler.dylib" "$unity_plugins/macOS/libquic_http_handler.dylib.meta"
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          branch: ci/update-native-plugins
+          base: main
+          add-paths: |
+            src/QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity/Runtime/Plugins
+            src/QuicHttpHandler.Interop/runtimes
+          commit-message: Update generated native plugins
+          title: Update generated Unity and .NET native plugins
+          body: |
+            Update the checked-in Unity plugins and .NET RID-specific native libraries
+            from the successful all-platform build.
