@@ -1546,11 +1546,12 @@ async fn connection_actor(
                         });
                     },
                     ClientH3Event::Core(H3Event::BodyBytesReceived { stream_id, fin: true, .. }) => {
+                        pool_state.stream_capacity_blocked.store(false, Ordering::Release);
                         if let Some(finish) = finish_by_stream.remove(&stream_id) { let _ = finish.send(()); }
                         by_stream.remove(&stream_id);
                         stream_by_request.retain(|_, value| *value != stream_id);
                     },
-                    ClientH3Event::Core(H3Event::ResetStream { stream_id, error_code }) => if let Some(meta) = by_stream.remove(&stream_id) { let response_started = finish_by_stream.remove(&stream_id).is_some(); stream_by_request.retain(|_, value| *value != stream_id); if !meta.life.cancelled.load(Ordering::Acquire) { meta.life.complete(callbacks.on_complete, Completion::stream_reset(error_code, response_started, &format!("HTTP/3 stream reset ({error_code:#x})"))); } },
+                    ClientH3Event::Core(H3Event::ResetStream { stream_id, error_code }) => if let Some(meta) = by_stream.remove(&stream_id) { pool_state.stream_capacity_blocked.store(false, Ordering::Release); let response_started = finish_by_stream.remove(&stream_id).is_some(); stream_by_request.retain(|_, value| *value != stream_id); if !meta.life.cancelled.load(Ordering::Acquire) { meta.life.complete(callbacks.on_complete, Completion::stream_reset(error_code, response_started, &format!("HTTP/3 stream reset ({error_code:#x})"))); } },
                     ClientH3Event::Core(H3Event::StreamClosed { stream_id }) => {
                         pool_state.stream_capacity_blocked.store(false, Ordering::Release);
                         let response_started = if let Some(finish) = finish_by_stream.remove(&stream_id) { let _ = finish.send(()); true } else { false };
