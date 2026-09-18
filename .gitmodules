@@ -1,0 +1,3 @@
+[submodule "vendor/quiche"]
+	path = vendor/quiche
+	url = https://github.com/nuskey8/quiche.git

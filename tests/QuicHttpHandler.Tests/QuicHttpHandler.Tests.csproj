@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.6.0" />
+    <ProjectReference Include="../../src/QuicHttpHandler/QuicHttpHandler.csproj" />
+    <ProjectReference
+      Include="../QuicHttpHandler.TestServer/QuicHttpHandler.TestServer.csproj"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+  <ItemGroup>
+    <Content
+      Include="../../target/debug/libquic_http_handler.dylib"
+      Condition="Exists('../../target/debug/libquic_http_handler.dylib')"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/libquic_http_handler.dylib"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../target/debug/libquic_http_handler.so"
+      Condition="Exists('../../target/debug/libquic_http_handler.so')"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/libquic_http_handler.so"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../target/debug/quic_http_handler.dll"
+      Condition="Exists('../../target/debug/quic_http_handler.dll')"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/quic_http_handler.dll"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+  <Target Name="BuildNativeFixtures" BeforeTargets="Build">
+    <Exec
+      WorkingDirectory="../.."
+      Command="cargo build -p quic_http_handler"
+    />
+  </Target>
+  <Target Name="CopyNativeFixture" AfterTargets="Build">
+    <Copy
+      SourceFiles="../../target/debug/libquic_http_handler.dylib"
+      DestinationFolder="$(OutputPath)runtimes/$(NETCoreSdkRuntimeIdentifier)/native"
+      Condition="Exists('../../target/debug/libquic_http_handler.dylib')"
+    />
+    <Copy
+      SourceFiles="../../target/debug/libquic_http_handler.so"
+      DestinationFolder="$(OutputPath)runtimes/$(NETCoreSdkRuntimeIdentifier)/native"
+      Condition="Exists('../../target/debug/libquic_http_handler.so')"
+    />
+    <Copy
+      SourceFiles="../../target/debug/quic_http_handler.dll"
+      DestinationFolder="$(OutputPath)runtimes/$(NETCoreSdkRuntimeIdentifier)/native"
+      Condition="Exists('../../target/debug/quic_http_handler.dll')"
+    />
+  </Target>
+</Project>

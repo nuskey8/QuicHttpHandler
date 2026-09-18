@@ -1,0 +1,10 @@
+{
+  "name": "com.nuskey8.quic-http-handler",
+  "version": "0.1.0",
+  "displayName": "QuicHttpHandler",
+  "description": "Provides HTTP/3 support for .NET Standard and Unity",
+  "unity": "2021.3",
+  "author": {
+    "name": "nuskey"
+  }
+}

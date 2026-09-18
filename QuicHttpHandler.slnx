@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/BenchmarkServer/BenchmarkServer.csproj" />
+    <Project Path="benchmarks/QuicHttpHandler.Benchmarks/QuicHttpHandler.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/sandbox/">
+    <Project Path="sandbox/ConsoleApp1/ConsoleApp1.csproj" />
+    <Project Path="sandbox/GrpcOverHttp3/Client/GrpcOverHttp3.Client.csproj" />
+    <Project Path="sandbox/GrpcOverHttp3/Server/GrpcOverHttp3.Server.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/QuicHttpHandler.Interop/QuicHttpHandler.Interop.csproj" />
+    <Project Path="src/QuicHttpHandler/QuicHttpHandler.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QuicHttpHandler.TestServer/QuicHttpHandler.TestServer.csproj" />
+    <Project Path="tests/QuicHttpHandler.Tests/QuicHttpHandler.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,245 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  test:
+    name: Tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-dotnet@v5
+        id: dotnet11
+        with:
+          dotnet-version: 11.0.x
+      - name: Select .NET 11 SDK for the multi-target projects
+        env:
+          DOTNET_11_VERSION: ${{ steps.dotnet11.outputs.dotnet-version }}
+        run: |
+          jq --arg version "$DOTNET_11_VERSION" \
+            '.sdk.version = $version | .sdk.allowPrerelease = true | .sdk.rollForward = "latestPatch"' \
+            global.json > "$RUNNER_TEMP/global.json"
+          cp "$RUNNER_TEMP/global.json" global.json
+      - name: Test native implementation
+        run: cargo test -p quic_http_handler
+      - name: Test managed implementation
+        run: dotnet run -c Release --project tests/QuicHttpHandler.Tests -- --timeout 5m
+      - name: Build Unity managed assemblies
+        run: dotnet build src/QuicHttpHandler/QuicHttpHandler.csproj -c Release -f netstandard2.1 --no-restore
+      - name: Stage managed artifact
+        run: |
+          mkdir -p dist/QuicHttpHandler.Unity/Runtime
+          cp artifacts/bin/QuicHttpHandler/release_netstandard2.1/QuicHttpHandler.dll dist/QuicHttpHandler.Unity/Runtime/
+          cp src/QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity/Runtime/QuicHttpHandler.dll.meta dist/QuicHttpHandler.Unity/Runtime/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: managed-netstandard2.1
+          path: dist
+          if-no-files-found: error
+
+  desktop:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            library: libquic_http_handler.so
+            artifact: linux-x64
+            rid: linux-x64
+            unity_directory: Linux/x86_64
+          - name: Linux arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            library: libquic_http_handler.so
+            artifact: linux-arm64
+            rid: linux-arm64
+            unity_directory: Linux/arm64
+          - name: Windows x64
+            runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            library: quic_http_handler.dll
+            artifact: windows-x64
+            rid: win-x64
+            unity_directory: Windows/x86_64
+          - name: Windows arm64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            library: quic_http_handler.dll
+            artifact: windows-arm64
+            rid: win-arm64
+            unity_directory: Windows/arm64
+          - name: macOS x64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            library: libquic_http_handler.dylib
+            artifact: macos-x64
+            rid: osx-x64
+            unity_directory: macOS/x86_64
+          - name: macOS arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            library: libquic_http_handler.dylib
+            artifact: macos-arm64
+            rid: osx-arm64
+            unity_directory: macOS/arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build native library
+        shell: bash
+        run: cargo build -p quic_http_handler --release --locked --target "${{ matrix.target }}"
+      - name: Stage artifact
+        shell: bash
+        run: |
+          destination="dist/QuicHttpHandler.Unity/Runtime/Plugins/${{ matrix.unity_directory }}"
+          runtime_destination="dist/QuicHttpHandler.Interop/runtimes/${{ matrix.rid }}/native"
+          mkdir -p "$destination"
+          mkdir -p "$runtime_destination"
+          cp "target/${{ matrix.target }}/release/${{ matrix.library }}" "$destination/"
+          cp "target/${{ matrix.target }}/release/${{ matrix.library }}" "$runtime_destination/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.artifact }}
+          path: dist
+          if-no-files-found: error
+
+  android:
+    name: Android ${{ matrix.abi }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: armeabi-v7a
+            target: armv7-linux-androideabi
+          - abi: arm64-v8a
+            target: aarch64-linux-android
+          - abi: x86_64
+            target: x86_64-linux-android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android-${{ matrix.target }}
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r28c
+          add-to-path: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - name: Build Android native library
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: cargo ndk -t "${{ matrix.abi }}" -p 23 -o "dist/QuicHttpHandler.Unity/Runtime/Plugins/Android" build -p quic_http_handler --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-android-${{ matrix.abi }}
+          path: dist
+          if-no-files-found: error
+
+  ios:
+    name: iOS device and simulator
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      IPHONEOS_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios
+      - name: Build iOS static libraries
+        run: |
+          cargo build -p quic_http_handler --release --locked --target aarch64-apple-ios
+          cargo build -p quic_http_handler --release --locked --target aarch64-apple-ios-sim
+          cargo build -p quic_http_handler --release --locked --target x86_64-apple-ios
+      - name: Create XCFramework
+        run: |
+          mkdir -p dist/QuicHttpHandler.Unity/Runtime/Plugins/iOS
+          simulator_archive="$RUNNER_TEMP/libquic_http_handler-simulator.a"
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/libquic_http_handler.a \
+            target/x86_64-apple-ios/release/libquic_http_handler.a \
+            -output "$simulator_archive"
+          xcodebuild -create-xcframework \
+            -library target/aarch64-apple-ios/release/libquic_http_handler.a \
+            -library "$simulator_archive" \
+            -output dist/QuicHttpHandler.Unity/Runtime/Plugins/iOS/quic_http_handler.xcframework
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-ios
+          path: dist
+          if-no-files-found: error
+
+  package:
+    name: Combined Unity and .NET artifacts
+    needs: [test, desktop, android, ios]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage Unity package metadata and interop source
+        run: |
+          package_source=src/QuicHttpHandler.Unity/Packages/QuicHttpHandler.Unity
+          package_destination=dist/QuicHttpHandler.Unity
+          mkdir -p "$package_destination/Runtime"
+          cp "$package_source/package.json" "$package_source/package.json.meta" "$package_source/Runtime.meta" "$package_destination/"
+          cp "$package_source/Runtime/Plugins.meta" "$package_destination/Runtime/"
+          cp -R "$package_source/Interop" "$package_source/Interop.meta" "$package_destination/"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: dist
+          merge-multiple: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quic-http-handler-all-platforms
+          path: dist
+          if-no-files-found: error

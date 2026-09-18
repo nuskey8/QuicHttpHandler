@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.36.1" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.83.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.83.0" PrivateAssets="All" />
+    <Protobuf Include="../Protos/greeter.proto" GrpcServices="Server" Link="Protos/greeter.proto" />
+    <Compile Include="../../../tests/LocalhostCertificate.cs" Link="LocalhostCertificate.cs" />
+  </ItemGroup>
+</Project>

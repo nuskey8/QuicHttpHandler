@@ -1,0 +1,7 @@
+{
+  "name": "QuicHttpHandler.Interop",
+  "rootNamespace": "Nuskey.Net.Quic.Interop",
+  "allowUnsafeCode": true,
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

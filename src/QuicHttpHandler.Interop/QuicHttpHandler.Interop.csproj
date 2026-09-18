@@ -1,0 +1,58 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net11.0;net10.0;netstandard2.1</TargetFrameworks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>14</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- NuGet Packaging -->
+    <IsPackable>true</IsPackable>
+    <PackageTags>http3;quic;http</PackageTags>
+    <Description>Low-level API for QuicHttpHandler</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
+    <EmbeddedResource Include="..\..\LICENSE" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content
+      Include="..\..\target\debug\libquic_http_handler.dylib"
+      Condition="'$(Configuration)' != 'Release' And Exists('..\..\target\debug\libquic_http_handler.dylib')"
+      CopyToOutputDirectory="PreserveNewest"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/libquic_http_handler.dylib"
+    />
+    <Content
+      Include="..\..\target\debug\libquic_http_handler.so"
+      Condition="'$(Configuration)' != 'Release' And Exists('..\..\target\debug\libquic_http_handler.so')"
+      CopyToOutputDirectory="PreserveNewest"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/libquic_http_handler.so"
+    />
+    <Content
+      Include="..\..\target\debug\quic_http_handler.dll"
+      Condition="'$(Configuration)' != 'Release' And Exists('..\..\target\debug\quic_http_handler.dll')"
+      CopyToOutputDirectory="PreserveNewest"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/quic_http_handler.dll"
+    />
+    <Content
+      Include="..\..\target\release\libquic_http_handler.dylib"
+      Condition="'$(Configuration)' == 'Release' And Exists('..\..\target\release\libquic_http_handler.dylib')"
+      CopyToOutputDirectory="PreserveNewest"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/libquic_http_handler.dylib"
+    />
+    <Content
+      Include="..\..\target\release\libquic_http_handler.so"
+      Condition="'$(Configuration)' == 'Release' And Exists('..\..\target\release\libquic_http_handler.so')"
+      CopyToOutputDirectory="PreserveNewest"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/libquic_http_handler.so"
+    />
+    <Content
+      Include="..\..\target\release\quic_http_handler.dll"
+      Condition="'$(Configuration)' == 'Release' And Exists('..\..\target\release\quic_http_handler.dll')"
+      CopyToOutputDirectory="PreserveNewest"
+      Link="runtimes/$(NETCoreSdkRuntimeIdentifier)/native/quic_http_handler.dll"
+    />
+  </ItemGroup>
+</Project>

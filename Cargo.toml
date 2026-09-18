@@ -1,0 +1,4 @@
+[workspace]
+resolver = "3"
+members = ["src/quic_http_handler"]
+exclude = ["vendor/quiche"]
